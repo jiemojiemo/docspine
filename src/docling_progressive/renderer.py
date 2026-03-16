@@ -1,0 +1,45 @@
+import json
+from pathlib import Path
+
+from docling_progressive.models import DocumentNode
+
+
+def render_node_tree(node: DocumentNode, output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "index.md").write_text(_render_index(node), encoding="utf-8")
+    (output_dir / "content.md").write_text(node.content, encoding="utf-8")
+    (output_dir / "node.json").write_text(
+        json.dumps(
+            {
+                "id": node.node_id,
+                "title": node.title,
+                "slug": node.slug,
+                "level": node.level,
+                "summary": node.summary,
+                "children": [child.node_id for child in node.children],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    if not node.children:
+        return
+
+    sections_dir = output_dir / "sections"
+    for index, child in enumerate(node.children, start=1):
+        child_dir = sections_dir / f"{index:02d}-{child.slug}"
+        render_node_tree(child, child_dir)
+
+
+def _render_index(node: DocumentNode) -> str:
+    lines = [f"# {node.title}", "", node.summary]
+    if node.children:
+        lines.extend(["", "## Subsections"])
+        for index, child in enumerate(node.children, start=1):
+            lines.append(
+                f"- [{{child.title}}](sections/{index:02d}-{child.slug}/index.md)".format(
+                    child=child
+                )
+            )
+    return "\n".join(lines).strip() + "\n"
