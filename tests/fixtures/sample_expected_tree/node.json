@@ -1,0 +1,11 @@
+{
+  "id": "root",
+  "title": "Sample Report",
+  "slug": "sample-report",
+  "level": 0,
+  "summary": "",
+  "children": [
+    "business-overview",
+    "risk-factors"
+  ]
+}

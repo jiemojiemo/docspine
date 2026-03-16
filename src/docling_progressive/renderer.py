@@ -33,7 +33,9 @@ def render_node_tree(node: DocumentNode, output_dir: Path) -> None:
 
 
 def _render_index(node: DocumentNode) -> str:
-    lines = [f"# {node.title}", "", node.summary]
+    lines = [f"# {node.title}"]
+    if node.summary:
+        lines.extend(["", node.summary])
     if node.children:
         lines.extend(["", "## Subsections"])
         for index, child in enumerate(node.children, start=1):

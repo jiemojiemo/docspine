@@ -1,6 +1,8 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
+from docling_progressive.pipeline import build_progressive_package
+
 
 def build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="docling-progressive")
@@ -13,5 +15,7 @@ def build_parser() -> ArgumentParser:
 
 
 def main() -> int:
-    build_parser().parse_args()
+    args = build_parser().parse_args()
+    if args.command == "build":
+        build_progressive_package(args.input_path, args.output_dir)
     return 0

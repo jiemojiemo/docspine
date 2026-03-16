@@ -18,6 +18,7 @@ docling-progressive = "docling_progressive.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
 ]
 
 [tool.setuptools]
