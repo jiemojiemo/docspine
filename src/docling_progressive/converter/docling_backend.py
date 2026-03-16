@@ -37,6 +37,7 @@ class DoclingBackend:
         pdf = PdfDocument(str(input_path))
         total_pages = len(pdf)
         pdf.close()
+        outline = _extract_pdf_outline(input_path)
 
         logger = logging.getLogger("docling")
         previous_level = logger.level
@@ -67,5 +68,38 @@ class DoclingBackend:
                 "backend": "docling",
                 "source": str(input_path),
                 "total_pages": total_pages,
+                "outline": outline,
             },
         )
+
+
+def _extract_pdf_outline(input_path: Path) -> list[dict[str, object]]:
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return []
+
+    try:
+        reader = PdfReader(str(input_path))
+        outline = getattr(reader, "outline", [])
+    except Exception:
+        return []
+
+    return _flatten_outline(reader, outline, level=1)
+
+
+def _flatten_outline(reader, items, *, level: int) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    for item in items:
+        if isinstance(item, list):
+            result.extend(_flatten_outline(reader, item, level=level + 1))
+            continue
+        title = getattr(item, "title", None)
+        if not title:
+            continue
+        try:
+            page = reader.get_destination_page_number(item) + 1
+        except Exception:
+            page = None
+        result.append({"title": title, "level": level, "page": page})
+    return result

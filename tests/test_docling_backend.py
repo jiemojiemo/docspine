@@ -123,7 +123,59 @@ def test_docling_backend_uses_lightweight_pipeline_options(monkeypatch, tmp_path
     ]
 
 
-def _install_docling_stubs(monkeypatch, fake_converter, fake_pdf_document):
+def test_docling_backend_extracts_pdf_outline_into_metadata(monkeypatch, tmp_path):
+    class FakeDocumentConverter:
+        def __init__(self, **kwargs):
+            pass
+
+        def convert(self, path: str, page_range: tuple[int, int]):
+            return SimpleNamespace(
+                document=SimpleNamespace(export_to_markdown=lambda: "content")
+            )
+
+    class FakePdfDocument:
+        def __init__(self, path: str):
+            pass
+
+        def __len__(self):
+            return 1
+
+        def close(self):
+            return None
+
+    class FakeOutlineItem:
+        def __init__(self, title: str):
+            self.title = title
+
+    class FakePdfReader:
+        def __init__(self, path: str):
+            self.outline = [FakeOutlineItem("第一节 重要提示、目录和释义"), FakeOutlineItem("第二节 公司简介和主要财务指标")]
+
+        def get_destination_page_number(self, item):
+            return {
+                "第一节 重要提示、目录和释义": 5,
+                "第二节 公司简介和主要财务指标": 19,
+            }[item.title]
+
+    _install_docling_stubs(
+        monkeypatch,
+        FakeDocumentConverter,
+        FakePdfDocument,
+        fake_pdf_reader=FakePdfReader,
+    )
+
+    backend = DoclingBackend()
+    result = backend.convert(tmp_path / "sample.pdf", tmp_path / "work")
+
+    assert result.metadata["outline"] == [
+        {"title": "第一节 重要提示、目录和释义", "level": 1, "page": 6},
+        {"title": "第二节 公司简介和主要财务指标", "level": 1, "page": 20},
+    ]
+
+
+def _install_docling_stubs(
+    monkeypatch, fake_converter, fake_pdf_document, *, fake_pdf_reader=None
+):
     document_converter_module = ModuleType("docling.document_converter")
     document_converter_module.DocumentConverter = fake_converter
     document_converter_module.PdfFormatOption = FakePdfFormatOption
@@ -136,6 +188,11 @@ def _install_docling_stubs(monkeypatch, fake_converter, fake_pdf_document):
 
     pypdfium_module = ModuleType("pypdfium2")
     pypdfium_module.PdfDocument = fake_pdf_document
+
+    if fake_pdf_reader is not None:
+        pypdf_module = ModuleType("pypdf")
+        pypdf_module.PdfReader = fake_pdf_reader
+        monkeypatch.setitem(sys.modules, "pypdf", pypdf_module)
 
     monkeypatch.setitem(sys.modules, "docling.document_converter", document_converter_module)
     monkeypatch.setitem(sys.modules, "docling.datamodel.base_models", base_models_module)

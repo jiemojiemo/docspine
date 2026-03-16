@@ -1,7 +1,10 @@
 import json
+from hashlib import sha1
 from pathlib import Path
 
 from docling_progressive.models import DocumentNode
+
+MAX_DIRECTORY_NAME_LENGTH = 120
 
 
 def render_node_tree(node: DocumentNode, output_dir: Path) -> None:
@@ -28,7 +31,7 @@ def render_node_tree(node: DocumentNode, output_dir: Path) -> None:
 
     sections_dir = output_dir / "sections"
     for index, child in enumerate(node.children, start=1):
-        child_dir = sections_dir / f"{index:02d}-{child.slug}"
+        child_dir = sections_dir / _build_child_directory_name(index, child.slug)
         render_node_tree(child, child_dir)
 
 
@@ -45,3 +48,19 @@ def _render_index(node: DocumentNode) -> str:
                 )
             )
     return "\n".join(lines).strip() + "\n"
+
+
+def _build_child_directory_name(index: int, slug: str) -> str:
+    prefix = f"{index:02d}-"
+    safe_slug = _truncate_slug(slug, max_length=MAX_DIRECTORY_NAME_LENGTH - len(prefix))
+    return f"{prefix}{safe_slug}"
+
+
+def _truncate_slug(slug: str, max_length: int) -> str:
+    if len(slug) <= max_length:
+        return slug
+
+    digest = sha1(slug.encode("utf-8")).hexdigest()[:8]
+    reserved = len(digest) + 1
+    trimmed = slug[: max_length - reserved].rstrip("-")
+    return f"{trimmed}-{digest}"

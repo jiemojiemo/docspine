@@ -15,7 +15,7 @@ def build_progressive_package(
 ) -> None:
     active_backend = backend or create_backend("docling")
     conversion = active_backend.convert(input_pdf, output_dir)
-    root = build_outline_tree(conversion.markdown)
+    root = build_outline_tree(conversion.markdown, metadata=conversion.metadata)
     root = segment_tree(root)
     render_node_tree(root, output_dir)
     issues = validate_output_tree(output_dir)
