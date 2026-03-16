@@ -5,9 +5,16 @@ from time import perf_counter
 
 from docling_progressive.converter.models import ConversionResult
 
+PAGE_BATCH_SIZE = 5
+
 
 class DoclingBackend:
-    def convert(self, input_path: Path, work_dir: Path) -> ConversionResult:
+    def convert(
+        self,
+        input_path: Path,
+        work_dir: Path,
+        page_range: tuple[int, int] | None = None,
+    ) -> ConversionResult:
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.pipeline_options import PdfPipelineOptions
         from docling.document_converter import DocumentConverter, PdfFormatOption
@@ -18,8 +25,8 @@ class DoclingBackend:
 
         pipeline_options = PdfPipelineOptions(
             do_ocr=False,
-            do_table_structure=False,
-            force_backend_text=True,
+            do_table_structure=True,
+            force_backend_text=False,
             do_code_enrichment=False,
             do_formula_enrichment=False,
             do_picture_classification=False,
@@ -37,24 +44,32 @@ class DoclingBackend:
         pdf = PdfDocument(str(input_path))
         total_pages = len(pdf)
         pdf.close()
-        outline = _extract_pdf_outline(input_path)
+        selected_range = _normalize_page_range(page_range, total_pages)
+        outline = _extract_pdf_outline(input_path, selected_range)
+        selected_total_pages = selected_range[1] - selected_range[0] + 1
 
         logger = logging.getLogger("docling")
         previous_level = logger.level
         logger.setLevel(logging.WARNING)
         try:
             markdown_parts: list[str] = []
-            for page_no in range(1, total_pages + 1):
-                page_start = perf_counter()
+            for start_page in range(
+                selected_range[0], selected_range[1] + 1, PAGE_BATCH_SIZE
+            ):
+                end_page = min(start_page + PAGE_BATCH_SIZE - 1, total_pages)
+                end_page = min(end_page, selected_range[1])
+                batch_start = perf_counter()
                 print(
-                    f"converting page {page_no}/{total_pages}...",
+                    f"converting pages {start_page}-{end_page}/{selected_range[1]}...",
                     file=sys.stderr,
                     flush=True,
                 )
-                result = converter.convert(str(input_path), page_range=(page_no, page_no))
+                result = converter.convert(
+                    str(input_path), page_range=(start_page, end_page)
+                )
                 markdown_parts.append(result.document.export_to_markdown())
                 print(
-                    f"finished page {page_no}/{total_pages} in {perf_counter() - page_start:.2f}s",
+                    f"finished pages {start_page}-{end_page}/{selected_range[1]} in {perf_counter() - batch_start:.2f}s",
                     file=sys.stderr,
                     flush=True,
                 )
@@ -68,12 +83,17 @@ class DoclingBackend:
                 "backend": "docling",
                 "source": str(input_path),
                 "total_pages": total_pages,
+                "processed_pages": selected_total_pages,
+                "page_range": selected_range,
                 "outline": outline,
             },
         )
 
 
-def _extract_pdf_outline(input_path: Path) -> list[dict[str, object]]:
+def _extract_pdf_outline(
+    input_path: Path,
+    page_range: tuple[int, int] | None = None,
+) -> list[dict[str, object]]:
     try:
         from pypdf import PdfReader
     except ImportError:
@@ -85,7 +105,25 @@ def _extract_pdf_outline(input_path: Path) -> list[dict[str, object]]:
     except Exception:
         return []
 
-    return _flatten_outline(reader, outline, level=1)
+    entries = _flatten_outline(reader, outline, level=1)
+    if page_range is None:
+        return entries
+    start_page, end_page = page_range
+    return [
+        entry
+        for entry in entries
+        if isinstance(entry.get("page"), int) and start_page <= entry["page"] <= end_page
+    ]
+
+
+def _normalize_page_range(
+    page_range: tuple[int, int] | None, total_pages: int
+) -> tuple[int, int]:
+    if page_range is None:
+        return (1, total_pages)
+
+    start_page, end_page = page_range
+    return (max(1, start_page), min(total_pages, end_page))
 
 
 def _flatten_outline(reader, items, *, level: int) -> list[dict[str, object]]:

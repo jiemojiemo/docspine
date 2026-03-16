@@ -213,3 +213,54 @@ def test_build_outline_tree_builds_nested_tree_from_pdf_outline_metadata():
         "一、公司信息",
         "二、联系人和联系方式",
     ]
+
+
+def test_build_outline_tree_preserves_markdown_table_rows_in_outline_section_content():
+    markdown = "\n".join(
+        [
+            "## 年度报告",
+            "## 第一节 重要提示、目录和释义",
+            "## 释义",
+            "| 释义项 | 指 | 释义内容 |",
+            "|---|---|---|",
+            "| 公司 | 指 | 深圳迈瑞生物医疗电子股份有限公司 |",
+            "## 第二节 公司简介和主要财务指标",
+            "第二节正文。",
+        ]
+    )
+
+    root = build_outline_tree(
+        markdown,
+        metadata={
+            "outline": [
+                {"title": "第一节 重要提示、目录和释义", "level": 1, "page": 6},
+                {"title": "第二节 公司简介和主要财务指标", "level": 1, "page": 20},
+            ]
+        },
+    )
+
+    assert "| 释义项 | 指 | 释义内容 |" in root.children[0].content
+    assert "| 公司 | 指 | 深圳迈瑞生物医疗电子股份有限公司 |" in root.children[0].content
+
+
+def test_build_outline_tree_preserves_markdown_table_rows_in_toc_section_content():
+    markdown = "\n".join(
+        [
+            "## 年度报告",
+            "## 目 录",
+            "| 第一节  重要提示、目录和释义  ........  6  第二节  公司简介和主要财务指标  ........  20 |",
+            "|---|",
+            "## 第一节 重要提示、目录和释义",
+            "## 释义",
+            "| 释义项 | 指 | 释义内容 |",
+            "|---|---|---|",
+            "| 公司 | 指 | 深圳迈瑞生物医疗电子股份有限公司 |",
+            "## 第二节 公司简介和主要财务指标",
+            "第二节正文。",
+        ]
+    )
+
+    root = build_outline_tree(markdown)
+
+    assert "| 释义项 | 指 | 释义内容 |" in root.children[0].content
+    assert "| 公司 | 指 | 深圳迈瑞生物医疗电子股份有限公司 |" in root.children[0].content

@@ -8,7 +8,12 @@ from docling_progressive.pipeline import build_progressive_package
 
 
 class StubBackend:
-    def convert(self, input_path: Path, work_dir: Path) -> ConversionResult:
+    def convert(
+        self,
+        input_path: Path,
+        work_dir: Path,
+        page_range: tuple[int, int] | None = None,
+    ) -> ConversionResult:
         asset_dir = work_dir / "assets"
         asset_dir.mkdir(parents=True, exist_ok=True)
         return ConversionResult(
@@ -30,9 +35,40 @@ def test_build_progressive_package_creates_root_files(tmp_path):
     assert (output_dir / "node.json").exists()
 
 
+def test_build_progressive_package_passes_page_range_to_backend(tmp_path):
+    captured: dict[str, object] = {}
+
+    class CapturingBackend(StubBackend):
+        def convert(
+            self,
+            input_path: Path,
+            work_dir: Path,
+            page_range: tuple[int, int] | None = None,
+        ) -> ConversionResult:
+            captured["page_range"] = page_range
+            return super().convert(input_path, work_dir, page_range=page_range)
+
+    input_pdf = tmp_path / "sample.pdf"
+    input_pdf.write_bytes(b"%PDF-1.4")
+
+    build_progressive_package(
+        input_pdf,
+        tmp_path / "out",
+        backend=CapturingBackend(),
+        page_range=(1, 20),
+    )
+
+    assert captured["page_range"] == (1, 20)
+
+
 def test_build_progressive_package_uses_default_backend_when_none_provided(monkeypatch, tmp_path):
     class DefaultBackend:
-        def convert(self, input_path: Path, work_dir: Path) -> ConversionResult:
+        def convert(
+            self,
+            input_path: Path,
+            work_dir: Path,
+            page_range: tuple[int, int] | None = None,
+        ) -> ConversionResult:
             return ConversionResult(
                 markdown="# Sample",
                 asset_dir=work_dir / "assets",

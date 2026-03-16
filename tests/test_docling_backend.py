@@ -15,9 +15,11 @@ def test_docling_backend_converts_pdf_page_by_page(monkeypatch, tmp_path, capsys
 
         def convert(self, path: str, page_range: tuple[int, int]):
             calls.append((path, page_range))
-            page_no = page_range[0]
+            start_page, end_page = page_range
             return SimpleNamespace(
-                document=SimpleNamespace(export_to_markdown=lambda: f"# Page {page_no}")
+                document=SimpleNamespace(
+                    export_to_markdown=lambda: f"# Page {start_page}-{end_page}"
+                )
             )
 
     class FakePdfDocument:
@@ -36,17 +38,15 @@ def test_docling_backend_converts_pdf_page_by_page(monkeypatch, tmp_path, capsys
     result = backend.convert(tmp_path / "sample.pdf", tmp_path / "work")
 
     assert calls == [
-        (str(tmp_path / "sample.pdf"), (1, 1)),
-        (str(tmp_path / "sample.pdf"), (2, 2)),
-        (str(tmp_path / "sample.pdf"), (3, 3)),
+        (str(tmp_path / "sample.pdf"), (1, 3)),
     ]
-    assert result.markdown == "# Page 1\n\n# Page 2\n\n# Page 3"
+    assert result.markdown == "# Page 1-3"
     assert result.asset_dir == tmp_path / "work" / "assets"
     assert result.metadata["backend"] == "docling"
 
     stderr = capsys.readouterr().err
-    assert "converting page 1/3" in stderr
-    assert "finished page 3/3" in stderr
+    assert "converting pages 1-3/3" in stderr
+    assert "finished pages 1-3/3" in stderr
 
 
 def test_docling_backend_suppresses_docling_logger(monkeypatch, tmp_path):
@@ -67,7 +67,7 @@ def test_docling_backend_suppresses_docling_logger(monkeypatch, tmp_path):
             pass
 
         def __len__(self):
-            return 1
+            return 20
 
         def close(self):
             return None
@@ -98,7 +98,7 @@ def test_docling_backend_uses_lightweight_pipeline_options(monkeypatch, tmp_path
             pass
 
         def __len__(self):
-            return 1
+            return 20
 
         def close(self):
             return None
@@ -111,8 +111,8 @@ def test_docling_backend_uses_lightweight_pipeline_options(monkeypatch, tmp_path
     assert captured_options == [
         {
             "do_ocr": False,
-            "do_table_structure": False,
-            "force_backend_text": True,
+            "do_table_structure": True,
+            "force_backend_text": False,
             "do_code_enrichment": False,
             "do_formula_enrichment": False,
             "do_picture_classification": False,
@@ -138,7 +138,7 @@ def test_docling_backend_extracts_pdf_outline_into_metadata(monkeypatch, tmp_pat
             pass
 
         def __len__(self):
-            return 1
+            return 20
 
         def close(self):
             return None
@@ -171,6 +171,79 @@ def test_docling_backend_extracts_pdf_outline_into_metadata(monkeypatch, tmp_pat
         {"title": "第一节 重要提示、目录和释义", "level": 1, "page": 6},
         {"title": "第二节 公司简介和主要财务指标", "level": 1, "page": 20},
     ]
+
+
+def test_docling_backend_limits_conversion_and_outline_to_selected_page_range(
+    monkeypatch, tmp_path, capsys
+):
+    calls: list[tuple[str, tuple[int, int]]] = []
+
+    class FakeDocumentConverter:
+        def __init__(self, **kwargs):
+            pass
+
+        def convert(self, path: str, page_range: tuple[int, int]):
+            calls.append((path, page_range))
+            start_page, end_page = page_range
+            return SimpleNamespace(
+                document=SimpleNamespace(
+                    export_to_markdown=lambda: f"# Page {start_page}-{end_page}"
+                )
+            )
+
+    class FakePdfDocument:
+        def __init__(self, path: str):
+            pass
+
+        def __len__(self):
+            return 400
+
+        def close(self):
+            return None
+
+    class FakeOutlineItem:
+        def __init__(self, title: str):
+            self.title = title
+
+    class FakePdfReader:
+        def __init__(self, path: str):
+            self.outline = [
+                FakeOutlineItem("第一节 重要提示、目录和释义"),
+                FakeOutlineItem("第二节 公司简介和主要财务指标"),
+                FakeOutlineItem("第三节 管理层讨论与分析"),
+            ]
+
+        def get_destination_page_number(self, item):
+            return {
+                "第一节 重要提示、目录和释义": 5,
+                "第二节 公司简介和主要财务指标": 19,
+                "第三节 管理层讨论与分析": 23,
+            }[item.title]
+
+    _install_docling_stubs(
+        monkeypatch,
+        FakeDocumentConverter,
+        FakePdfDocument,
+        fake_pdf_reader=FakePdfReader,
+    )
+
+    backend = DoclingBackend()
+    result = backend.convert(tmp_path / "sample.pdf", tmp_path / "work", page_range=(1, 20))
+
+    assert calls == [
+        (str(tmp_path / "sample.pdf"), (1, 5)),
+        (str(tmp_path / "sample.pdf"), (6, 10)),
+        (str(tmp_path / "sample.pdf"), (11, 15)),
+        (str(tmp_path / "sample.pdf"), (16, 20)),
+    ]
+    assert result.metadata["outline"] == [
+        {"title": "第一节 重要提示、目录和释义", "level": 1, "page": 6},
+        {"title": "第二节 公司简介和主要财务指标", "level": 1, "page": 20},
+    ]
+
+    stderr = capsys.readouterr().err
+    assert "converting pages 1-5/20" in stderr
+    assert "finished pages 16-20/20" in stderr
 
 
 def _install_docling_stubs(

@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from docling_progressive.converter.models import ConversionResult
 from docling_progressive.pipeline import build_progressive_package
@@ -8,7 +9,12 @@ class FixtureBackend:
     def __init__(self, markdown: str):
         self._markdown = markdown
 
-    def convert(self, input_path: Path, work_dir: Path) -> ConversionResult:
+    def convert(
+        self,
+        input_path: Path,
+        work_dir: Path,
+        page_range: tuple[int, int] | None = None,
+    ) -> ConversionResult:
         asset_dir = work_dir / "assets"
         asset_dir.mkdir(parents=True, exist_ok=True)
         return ConversionResult(
@@ -20,10 +26,16 @@ class FixtureBackend:
 
 def snapshot_tree(path: Path) -> dict[str, str]:
     return {
-        str(file.relative_to(path)): file.read_text(encoding="utf-8").rstrip("\n")
+        str(file.relative_to(path)): _normalize_snapshot_text(
+            file.read_text(encoding="utf-8").rstrip("\n")
+        )
         for file in sorted(path.rglob("*"))
         if file.is_file()
     }
+
+
+def _normalize_snapshot_text(text: str) -> str:
+    return re.sub(r"`/[^`]*sample\.pdf`", "`/normalized/sample.pdf`", text)
 
 
 def test_pipeline_regression_matches_expected_tree(tmp_path):

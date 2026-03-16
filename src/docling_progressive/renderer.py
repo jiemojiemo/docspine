@@ -7,7 +7,13 @@ from docling_progressive.models import DocumentNode
 MAX_DIRECTORY_NAME_LENGTH = 120
 
 
-def render_node_tree(node: DocumentNode, output_dir: Path) -> None:
+def render_node_tree(
+    node: DocumentNode,
+    output_dir: Path,
+    *,
+    source_path: Path | None = None,
+    metadata: dict | None = None,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "index.md").write_text(_render_index(node), encoding="utf-8")
     (output_dir / "content.md").write_text(node.content, encoding="utf-8")
@@ -22,9 +28,20 @@ def render_node_tree(node: DocumentNode, output_dir: Path) -> None:
                 "children": [child.node_id for child in node.children],
             },
             indent=2,
+            ensure_ascii=False,
         ),
         encoding="utf-8",
     )
+
+    if node.level == 0:
+        (output_dir / "AGENT.md").write_text(
+            _render_agent_guide(node, source_path=source_path, metadata=metadata or {}),
+            encoding="utf-8",
+        )
+        (output_dir / "context.md").write_text(
+            _render_context(node, source_path=source_path, metadata=metadata or {}),
+            encoding="utf-8",
+        )
 
     if not node.children:
         return
@@ -64,3 +81,37 @@ def _truncate_slug(slug: str, max_length: int) -> str:
     reserved = len(digest) + 1
     trimmed = slug[: max_length - reserved].rstrip("-")
     return f"{trimmed}-{digest}"
+
+
+def _render_agent_guide(
+    node: DocumentNode, *, source_path: Path | None, metadata: dict
+) -> str:
+    source = str(source_path) if source_path is not None else "unknown"
+    return (
+        "# AGENT Guide\n\n"
+        f"Source PDF: `{source}`\n\n"
+        "Read order:\n"
+        "- Start with `index.md` for section navigation.\n"
+        "- Open `content.md` only when you need the full text of the current node.\n"
+        "- Use `node.json` for machine-readable metadata such as title, level, and children.\n"
+        "- Browse subnodes under `sections/`.\n"
+    )
+
+
+def _render_context(
+    node: DocumentNode, *, source_path: Path | None, metadata: dict
+) -> str:
+    source = str(source_path) if source_path is not None else "unknown"
+    outline_state = "available" if metadata.get("outline") else "not available"
+    backend = metadata.get("backend", "unknown")
+    total_pages = metadata.get("total_pages", "unknown")
+    return (
+        "# Context\n\n"
+        f"- source_path: `{source}`\n"
+        f"- title: `{node.title}`\n"
+        f"- backend: `{backend}`\n"
+        f"- total_pages: `{total_pages}`\n"
+        f"- PDF outline: {outline_state}\n"
+        "- Structure priority: PDF outline > textual table of contents > heading scan.\n"
+        "- Key files: `index.md`, `content.md`, `node.json`, `sections/`.\n"
+    )

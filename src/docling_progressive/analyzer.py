@@ -231,9 +231,7 @@ def _build_children_from_outline(
         ]
         end_index = later[0] if later else len(lines)
         node.content = "\n".join(
-            line
-            for line in lines[current_index + 1 : end_index]
-            if line and not line.startswith("|")
+            line for line in lines[current_index + 1 : end_index] if line
         ).strip()
 
     return [node for node, level in nodes_with_level if level == 1]
@@ -267,9 +265,7 @@ def _build_children_from_toc(
         later_positions = [position for position in next_start_positions if position > start_index]
         end_index = later_positions[0] if later_positions else len(lines)
         content = "\n".join(
-            line
-            for line in lines[start_index + 1 : end_index]
-            if line and not line.startswith("|")
+            line for line in lines[start_index + 1 : end_index] if line
         ).strip()
         slug = _dedupe_slug(slugify(title), seen_slugs)
         children.append(
