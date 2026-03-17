@@ -1,4 +1,4 @@
-from docling_progressive.analyzer import build_outline_tree, slugify
+from docspine.analyzer import build_outline_tree, slugify
 
 
 def test_build_outline_tree_groups_content_under_headings():

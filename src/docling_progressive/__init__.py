@@ -1,1 +1,0 @@
-"""Progressive disclosure document packaging."""

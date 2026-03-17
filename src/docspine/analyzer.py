@@ -1,7 +1,7 @@
 import re
 import unicodedata
 
-from docling_progressive.models import DocumentNode
+from docspine.models import DocumentNode
 
 SECTION_PATTERN = re.compile(
     r"^(?:(#+)\s+.+|\d+(?:\.\d+)*\s*[、.．]\s*.+|[图表]\s*\d+\s*[：:]\s*.+)$"

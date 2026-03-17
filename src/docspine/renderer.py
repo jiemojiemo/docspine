@@ -2,7 +2,7 @@ import json
 from hashlib import sha1
 from pathlib import Path
 
-from docling_progressive.models import DocumentNode
+from docspine.models import DocumentNode
 
 MAX_DIRECTORY_NAME_LENGTH = 120
 

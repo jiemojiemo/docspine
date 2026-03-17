@@ -1,8 +1,8 @@
 from pathlib import Path
 import re
 
-from docling_progressive.converter.models import ConversionResult
-from docling_progressive.pipeline import build_progressive_package
+from docspine.converter.models import ConversionResult
+from docspine.pipeline import build_progressive_package
 
 
 class FixtureBackend:

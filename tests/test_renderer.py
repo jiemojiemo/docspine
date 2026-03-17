@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from docling_progressive.models import DocumentNode
-from docling_progressive.renderer import render_node_tree
+from docspine.models import DocumentNode
+from docspine.renderer import render_node_tree
 
 
 def test_render_node_tree_writes_index_content_and_metadata(tmp_path):

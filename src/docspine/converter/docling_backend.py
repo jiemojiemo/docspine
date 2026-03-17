@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from time import perf_counter
 
-from docling_progressive.converter.models import ConversionResult
+from docspine.converter.models import ConversionResult
 
 PAGE_BATCH_SIZE = 5
 

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from docling_progressive import cli
+from docspine import cli
 
 
 def test_main_runs_build_pipeline(monkeypatch):
@@ -19,7 +19,7 @@ def test_main_runs_build_pipeline(monkeypatch):
     monkeypatch.setattr(
         "sys.argv",
         [
-            "docling-progressive",
+            "docspine",
             "build",
             "sample.pdf",
             "--out",

@@ -1,6 +1,6 @@
-# Docling Progressive
+# DocSpine
 
-`docling-progressive` converts a PDF into a progressively disclosed document tree for agent-style navigation.
+`DocSpine` converts a PDF into a progressively disclosed document tree for agent-style navigation.
 
 ## Output Layout
 
@@ -31,11 +31,11 @@ uv sync --group dev
 Build a package from a PDF:
 
 ```bash
-uv run docling-progressive build input.pdf --out out
+uv run docspine build input.pdf --out out
 ```
 
 Run tests with coverage:
 
 ```bash
-uv run --group dev pytest --cov=src/docling_progressive --cov-report=term-missing
+uv run --group dev pytest --cov=src/docspine --cov-report=term-missing
 ```

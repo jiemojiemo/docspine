@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from docling_progressive.analyzer import build_outline_tree
-from docling_progressive.converter.base import ConverterBackend
-from docling_progressive.converter.factory import create_backend
-from docling_progressive.renderer import render_node_tree
-from docling_progressive.segmenter import segment_tree
-from docling_progressive.validator import validate_output_tree
+from docspine.analyzer import build_outline_tree
+from docspine.converter.base import ConverterBackend
+from docspine.converter.factory import create_backend
+from docspine.renderer import render_node_tree
+from docspine.segmenter import segment_tree
+from docspine.validator import validate_output_tree
 
 
 def build_progressive_package(

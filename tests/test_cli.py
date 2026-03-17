@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from docling_progressive.cli import build_parser
+from docspine.cli import build_parser
 
 
 def test_build_parser_accepts_input_and_output_paths():

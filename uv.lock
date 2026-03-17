@@ -405,7 +405,7 @@ wheels = [
 ]
 
 [[package]]
-name = "docling-progressive"
+name = "docspine"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

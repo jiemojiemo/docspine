@@ -1,4 +1,4 @@
-from docling_progressive.converter.docling_backend import DoclingBackend
+from docspine.converter.docling_backend import DoclingBackend
 
 
 def create_backend(name: str = "docling") -> DoclingBackend:

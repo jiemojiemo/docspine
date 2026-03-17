@@ -1,5 +1,5 @@
-from docling_progressive.models import DocumentNode
-from docling_progressive.segmenter import split_oversized_leaf
+from docspine.models import DocumentNode
+from docspine.segmenter import split_oversized_leaf
 
 
 def test_split_oversized_leaf_creates_part_children_when_needed():

@@ -1,7 +1,7 @@
 import pytest
 
-from docling_progressive.converter.docling_backend import DoclingBackend
-from docling_progressive.converter.factory import create_backend
+from docspine.converter.docling_backend import DoclingBackend
+from docspine.converter.factory import create_backend
 
 
 def test_create_backend_returns_docling_backend():

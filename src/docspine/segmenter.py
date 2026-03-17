@@ -1,4 +1,4 @@
-from docling_progressive.models import DocumentNode
+from docspine.models import DocumentNode
 
 
 def split_oversized_leaf(node: DocumentNode, max_paragraphs: int) -> DocumentNode:

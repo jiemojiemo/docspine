@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Protocol
 
-from docling_progressive.converter.models import ConversionResult
+from docspine.converter.models import ConversionResult
 
 
 class ConverterBackend(Protocol):

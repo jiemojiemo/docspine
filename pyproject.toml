@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "docling-progressive"
+name = "docspine"
 version = "0.1.0"
-description = "Progressive disclosure packaging for PDF documents"
+description = "Progressive document structuring for long-form documents"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-docling-progressive = "docling_progressive.cli:main"
+docspine = "docspine.cli:main"
 
 [dependency-groups]
 dev = [

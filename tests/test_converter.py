@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from docling_progressive.converter.base import ConverterBackend
-from docling_progressive.converter.models import ConversionResult
+from docspine.converter.base import ConverterBackend
+from docspine.converter.models import ConversionResult
 
 
 def test_conversion_result_keeps_markdown_and_asset_dir():

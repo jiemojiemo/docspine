@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
-from docling_progressive.converter.docling_backend import DoclingBackend
+from docspine.converter.docling_backend import DoclingBackend
 
 
 def test_docling_backend_converts_pdf_page_by_page(monkeypatch, tmp_path, capsys):

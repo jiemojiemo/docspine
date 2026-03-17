@@ -1,4 +1,4 @@
-from docling_progressive.models import AssetRef, DocumentNode
+from docspine.models import AssetRef, DocumentNode
 
 
 def test_document_node_tracks_children_and_assets():

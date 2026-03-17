@@ -1,7 +1,7 @@
 from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
 
-from docling_progressive.pipeline import build_progressive_package
+from docspine.pipeline import build_progressive_package
 
 
 def parse_page_range(value: str) -> tuple[int, int]:
@@ -22,7 +22,7 @@ def parse_page_range(value: str) -> tuple[int, int]:
 
 
 def build_parser() -> ArgumentParser:
-    parser = ArgumentParser(prog="docling-progressive")
+    parser = ArgumentParser(prog="docspine")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     build_parser = subparsers.add_parser("build")

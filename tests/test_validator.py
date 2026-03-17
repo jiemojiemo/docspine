@@ -1,4 +1,4 @@
-from docling_progressive.validator import validate_output_tree
+from docspine.validator import validate_output_tree
 
 
 def test_validate_output_tree_reports_missing_content_file(tmp_path):
