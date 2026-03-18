@@ -1,5 +1,12 @@
 # DocSpine
 
+<p align="center">
+  <a href="README.md">English</a> &bull;
+  <a href="README.zh.md">中文</a>
+</p>
+
+---
+
 PDFs are too long for AI agents to read efficiently. DocSpine converts a PDF into a navigable tree of Markdown files, so agents can locate and read only what they need.
 
 ## How It Works

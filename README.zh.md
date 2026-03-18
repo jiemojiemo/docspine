@@ -1,5 +1,12 @@
 # DocSpine
 
+<p align="center">
+  <a href="README.md">English</a> &bull;
+  <a href="README.zh.md">中文</a>
+</p>
+
+---
+
 PDF 对 AI Agent 来说太长了，无法高效阅读。DocSpine 将 PDF 转换为可导航的 Markdown 文件树，让 Agent 只读取需要的部分。
 
 ## 工作原理
