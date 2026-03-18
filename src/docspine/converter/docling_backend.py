@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 import threading
 from pathlib import Path
@@ -96,7 +97,9 @@ class DoclingBackend:
                     result = converter.convert(
                         str(input_path), page_range=(start_page, end_page)
                     )
-                    markdown_parts.append(result.document.export_to_markdown())
+                    markdown_parts.append(
+                    _fix_scientific_notation(result.document.export_to_markdown())
+                )
                 finally:
                     stop_ticker.set()
                     ticker.join()
@@ -182,3 +185,21 @@ def _flatten_outline(reader, items, *, level: int) -> list[dict[str, object]]:
             page = None
         result.append({"title": title, "level": level, "page": page})
     return result
+
+
+_SCIENTIFIC_NOTATION_RE = re.compile(r"-?\d+\.\d+e[+-]\d+", re.IGNORECASE)
+
+
+def _fix_scientific_notation(text: str) -> str:
+    """Convert scientific notation numbers (e.g. 6.07846e+08) to plain integers."""
+
+    def _replace(m: re.Match) -> str:
+        try:
+            value = float(m.group())
+            if value == int(value):
+                return str(int(value))
+            return f"{value:,.2f}"
+        except (ValueError, OverflowError):
+            return m.group()
+
+    return _SCIENTIFIC_NOTATION_RE.sub(_replace, text)
