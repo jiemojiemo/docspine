@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from docspine.models import DocumentNode
+from docspine.models import AssetRef, DocumentNode
 from docspine.renderer import render_node_tree
 
 
@@ -151,3 +151,131 @@ def test_render_node_tree_root_agent_and_context_include_key_guidance(tmp_path):
     assert "/docs/sample.pdf" in agent_text
     assert "PDF outline" in context_text
     assert "source_path" in context_text
+
+
+# --- node.json metadata ---
+
+def test_node_json_includes_word_count(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="",
+        content="one two three four five",
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert meta["word_count"] == 5
+
+
+def test_node_json_word_count_is_zero_for_empty_content(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="", content="",
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert meta["word_count"] == 0
+
+
+def test_node_json_has_tables_true_when_content_has_markdown_table(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="",
+        content="Intro.\n| Col A | Col B |\n|---|---|\n| 1 | 2 |",
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert meta["has_tables"] is True
+
+
+def test_node_json_has_tables_false_when_no_table(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="",
+        content="Just plain text. No tables here.",
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert meta["has_tables"] is False
+
+
+def test_node_json_includes_asset_count_and_types(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="",
+        content="body",
+        assets=[
+            AssetRef(asset_id="a1", asset_type="image", path="img1.png"),
+            AssetRef(asset_id="a2", asset_type="table", path="tbl1.csv"),
+            AssetRef(asset_id="a3", asset_type="image", path="img2.png"),
+        ],
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert meta["asset_count"] == 3
+    assert meta["asset_types"] == ["image", "table"]
+
+
+def test_node_json_includes_page_start_when_set(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="",
+        content="body", page_start=42,
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert meta["page_start"] == 42
+
+
+def test_node_json_omits_page_start_when_none(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="",
+        content="body", page_start=None,
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert "page_start" not in meta
+
+
+def test_node_json_does_not_include_summary(tmp_path):
+    node = DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="ignore me",
+        content="body",
+    )
+    render_node_tree(node, tmp_path)
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert "summary" not in meta
+
+
+# --- index.md hints ---
+
+def _make_root_with_child(content: str, page_start: int | None = None) -> DocumentNode:
+    child = DocumentNode(
+        node_id="sec", title="Section One", slug="section-one", level=1, summary="",
+        content=content, page_start=page_start,
+    )
+    return DocumentNode(
+        node_id="root", title="Report", slug="report", level=0, summary="",
+        content="", children=[child],
+    )
+
+
+def test_index_md_shows_word_count_hint_for_children(tmp_path):
+    root = _make_root_with_child("alpha beta gamma")
+    render_node_tree(root, tmp_path)
+    index = (tmp_path / "index.md").read_text()
+    assert "3 words" in index
+
+
+def test_index_md_shows_tables_hint_when_child_has_table(tmp_path):
+    root = _make_root_with_child("| A | B |\n|---|---|\n| 1 | 2 |")
+    render_node_tree(root, tmp_path)
+    index = (tmp_path / "index.md").read_text()
+    assert "tables" in index
+
+
+def test_index_md_shows_page_hint_when_child_has_page_start(tmp_path):
+    root = _make_root_with_child("some content", page_start=15)
+    render_node_tree(root, tmp_path)
+    index = (tmp_path / "index.md").read_text()
+    assert "p.15" in index
+
+
+def test_index_md_shows_no_hint_for_empty_child(tmp_path):
+    root = _make_root_with_child("")
+    render_node_tree(root, tmp_path)
+    index = (tmp_path / "index.md").read_text()
+    assert " — " not in index

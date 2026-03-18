@@ -3,7 +3,10 @@
   "title": "Sample Report",
   "slug": "sample-report",
   "level": 0,
-  "summary": "",
+  "word_count": 2,
+  "has_tables": false,
+  "asset_count": 0,
+  "asset_types": [],
   "children": [
     "business-overview",
     "risk-factors"

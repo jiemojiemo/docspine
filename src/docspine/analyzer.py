@@ -194,12 +194,14 @@ def _build_children_from_outline(
         title = str(entry["title"])
         level = int(entry["level"])
         slug = _dedupe_slug(slugify(title), seen_slugs)
+        page = entry.get("page")
         node = DocumentNode(
             node_id=slug,
             title=title,
             slug=slug,
             level=level,
             summary="",
+            page_start=int(page) if page is not None else None,
         )
         nodes_with_level.append((node, level))
 

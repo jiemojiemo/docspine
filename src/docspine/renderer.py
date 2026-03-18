@@ -17,19 +17,22 @@ def render_node_tree(
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "index.md").write_text(_render_index(node), encoding="utf-8")
     (output_dir / "content.md").write_text(node.content, encoding="utf-8")
+    asset_types = sorted({a.asset_type for a in node.assets})
+    node_meta: dict = {
+        "id": node.node_id,
+        "title": node.title,
+        "slug": node.slug,
+        "level": node.level,
+        "word_count": len(node.content.split()) if node.content else 0,
+        "has_tables": _has_tables(node.content),
+        "asset_count": len(node.assets),
+        "asset_types": asset_types,
+        "children": [child.node_id for child in node.children],
+    }
+    if node.page_start is not None:
+        node_meta["page_start"] = node.page_start
     (output_dir / "node.json").write_text(
-        json.dumps(
-            {
-                "id": node.node_id,
-                "title": node.title,
-                "slug": node.slug,
-                "level": node.level,
-                "summary": node.summary,
-                "children": [child.node_id for child in node.children],
-            },
-            indent=2,
-            ensure_ascii=False,
-        ),
+        json.dumps(node_meta, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 
@@ -59,12 +62,28 @@ def _render_index(node: DocumentNode) -> str:
     if node.children:
         lines.extend(["", "## Subsections"])
         for index, child in enumerate(node.children, start=1):
-            lines.append(
-                f"- [{{child.title}}](sections/{index:02d}-{child.slug}/index.md)".format(
-                    child=child
-                )
-            )
+            hint = _section_hint(child)
+            link = f"- [{child.title}](sections/{index:02d}-{child.slug}/index.md)"
+            lines.append(f"{link}{hint}")
     return "\n".join(lines).strip() + "\n"
+
+
+def _section_hint(node: DocumentNode) -> str:
+    parts = []
+    word_count = len(node.content.split()) if node.content else 0
+    if word_count > 0:
+        parts.append(f"{word_count:,} words")
+    if _has_tables(node.content):
+        parts.append("tables")
+    if node.page_start is not None:
+        parts.append(f"p.{node.page_start}")
+    return f" — {' · '.join(parts)}" if parts else ""
+
+
+def _has_tables(content: str) -> bool:
+    if not content:
+        return False
+    return any(line.startswith("|") for line in content.splitlines())
 
 
 def _build_child_directory_name(index: int, slug: str) -> str:

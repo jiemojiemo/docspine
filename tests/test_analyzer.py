@@ -264,3 +264,45 @@ def test_build_outline_tree_preserves_markdown_table_rows_in_toc_section_content
 
     assert "| 释义项 | 指 | 释义内容 |" in root.children[0].content
     assert "| 公司 | 指 | 深圳迈瑞生物医疗电子股份有限公司 |" in root.children[0].content
+
+
+def test_build_outline_tree_sets_page_start_from_pdf_outline():
+    markdown = "\n".join([
+        "## 年度报告",
+        "## 第一节 重要提示",
+        "第一节正文。",
+        "## 第二节 财务数据",
+        "第二节正文。",
+    ])
+
+    root = build_outline_tree(
+        markdown,
+        metadata={
+            "outline": [
+                {"title": "第一节 重要提示", "level": 1, "page": 6},
+                {"title": "第二节 财务数据", "level": 1, "page": 24},
+            ]
+        },
+    )
+
+    assert root.children[0].page_start == 6
+    assert root.children[1].page_start == 24
+
+
+def test_build_outline_tree_page_start_is_none_when_outline_has_no_page():
+    markdown = "\n".join([
+        "## 年度报告",
+        "## 第一节 重要提示",
+        "正文。",
+    ])
+
+    root = build_outline_tree(
+        markdown,
+        metadata={
+            "outline": [
+                {"title": "第一节 重要提示", "level": 1},
+            ]
+        },
+    )
+
+    assert root.children[0].page_start is None
