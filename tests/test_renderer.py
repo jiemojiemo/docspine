@@ -241,6 +241,25 @@ def test_node_json_does_not_include_summary(tmp_path):
     assert "summary" not in meta
 
 
+def test_node_json_includes_streaming_status_fields_when_set(tmp_path):
+    node = DocumentNode(
+        node_id="root",
+        title="Report",
+        slug="report",
+        level=0,
+        summary="",
+        content="body",
+        structure_status="ready",
+        content_status="partial",
+    )
+
+    render_node_tree(node, tmp_path)
+
+    meta = json.loads((tmp_path / "node.json").read_text())
+    assert meta["structure_status"] == "ready"
+    assert meta["content_status"] == "partial"
+
+
 # --- index.md hints ---
 
 def _make_root_with_child(content: str, page_start: int | None = None) -> DocumentNode:

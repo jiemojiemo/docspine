@@ -6,6 +6,7 @@ from types import ModuleType, SimpleNamespace
 import pytest
 
 from docspine.converter.docling_backend import DoclingBackend, _fix_scientific_notation
+from docspine.converter.models import ConversionChunk, StreamingConversionSession
 
 
 def test_docling_backend_converts_pdf_page_by_page(monkeypatch, tmp_path, capsys):
@@ -355,3 +356,84 @@ def test_docling_backend_fixes_scientific_notation_in_converted_markdown(
     result = backend.convert(tmp_path / "sample.pdf", tmp_path / "work")
 
     assert result.markdown == "| 营业收入 | 607846000 |"
+
+
+def test_docling_backend_stream_convert_yields_chunks_with_metadata(monkeypatch, tmp_path, capsys):
+    calls: list[tuple[str, tuple[int, int]]] = []
+
+    class FakeDocumentConverter:
+        def __init__(self, **kwargs):
+            pass
+
+        def convert(self, path: str, page_range: tuple[int, int]):
+            calls.append((path, page_range))
+            start_page, end_page = page_range
+            return SimpleNamespace(
+                document=SimpleNamespace(
+                    export_to_markdown=lambda: f"# Page {start_page}-{end_page}"
+                )
+            )
+
+    class FakePdfDocument:
+        def __init__(self, path: str):
+            pass
+
+        def __len__(self):
+            return 12
+
+        def close(self):
+            return None
+
+    _install_docling_stubs(monkeypatch, FakeDocumentConverter, FakePdfDocument)
+
+    backend = DoclingBackend()
+    session = backend.stream_convert(tmp_path / "sample.pdf", tmp_path / "work", batch_size=5)
+
+    assert isinstance(session, StreamingConversionSession)
+    assert session.metadata["total_pages"] == 12
+    assert session.metadata["page_range"] == (1, 12)
+    assert list(session.chunks) == [
+        ConversionChunk(page_start=1, page_end=5, markdown="# Page 1-5", metadata={}),
+        ConversionChunk(page_start=6, page_end=10, markdown="# Page 6-10", metadata={}),
+        ConversionChunk(page_start=11, page_end=12, markdown="# Page 11-12", metadata={}),
+    ]
+    assert calls == [
+        (str(tmp_path / "sample.pdf"), (1, 5)),
+        (str(tmp_path / "sample.pdf"), (6, 10)),
+        (str(tmp_path / "sample.pdf"), (11, 12)),
+    ]
+
+    stderr = capsys.readouterr().err
+    assert "converting pages 1-5/12" in stderr
+    assert "finished pages 11-12/12" in stderr
+
+
+def test_docling_backend_convert_collects_streaming_chunks(monkeypatch, tmp_path):
+    class FakeDocumentConverter:
+        def __init__(self, **kwargs):
+            pass
+
+        def convert(self, path: str, page_range: tuple[int, int]):
+            start_page, end_page = page_range
+            return SimpleNamespace(
+                document=SimpleNamespace(
+                    export_to_markdown=lambda: f"# Page {start_page}-{end_page}"
+                )
+            )
+
+    class FakePdfDocument:
+        def __init__(self, path: str):
+            pass
+
+        def __len__(self):
+            return 6
+
+        def close(self):
+            return None
+
+    _install_docling_stubs(monkeypatch, FakeDocumentConverter, FakePdfDocument)
+
+    backend = DoclingBackend()
+    result = backend.convert(tmp_path / "sample.pdf", tmp_path / "work", page_range=(2, 6))
+
+    assert result.markdown == "# Page 2-6"

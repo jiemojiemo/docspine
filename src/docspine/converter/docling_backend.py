@@ -5,9 +5,10 @@ import threading
 from pathlib import Path
 from time import perf_counter
 
-from docspine.converter.models import ConversionResult
+from docspine.converter.models import ConversionChunk, ConversionResult, StreamingConversionSession
 
 PAGE_BATCH_SIZE = 20
+STREAM_PAGE_BATCH_SIZE = 5
 
 
 class DoclingBackend:
@@ -17,6 +18,26 @@ class DoclingBackend:
         work_dir: Path,
         page_range: tuple[int, int] | None = None,
     ) -> ConversionResult:
+        session = self.stream_convert(
+            input_path,
+            work_dir,
+            page_range=page_range,
+            batch_size=PAGE_BATCH_SIZE,
+        )
+        markdown = "\n\n".join(chunk.markdown for chunk in session.chunks)
+        return ConversionResult(
+            markdown=markdown,
+            asset_dir=session.asset_dir,
+            metadata=session.metadata,
+        )
+
+    def stream_convert(
+        self,
+        input_path: Path,
+        work_dir: Path,
+        page_range: tuple[int, int] | None = None,
+        batch_size: int = STREAM_PAGE_BATCH_SIZE,
+    ) -> StreamingConversionSession:
         from docling.datamodel.accelerator_options import AcceleratorOptions
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.pipeline_options import (
@@ -69,50 +90,7 @@ class DoclingBackend:
         selected_range = _normalize_page_range(page_range, total_pages)
         outline = _extract_pdf_outline(input_path, selected_range)
         selected_total_pages = selected_range[1] - selected_range[0] + 1
-
-        logger = logging.getLogger("docling")
-        previous_level = logger.level
-        logger.setLevel(logging.WARNING)
-        try:
-            markdown_parts: list[str] = []
-            for start_page in range(
-                selected_range[0], selected_range[1] + 1, PAGE_BATCH_SIZE
-            ):
-                end_page = min(start_page + PAGE_BATCH_SIZE - 1, total_pages)
-                end_page = min(end_page, selected_range[1])
-                batch_start = perf_counter()
-                print(
-                    f"converting pages {start_page}-{end_page}/{selected_range[1]}...",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                stop_ticker = threading.Event()
-                ticker = threading.Thread(
-                    target=_progress_ticker,
-                    args=(stop_ticker, batch_start),
-                    daemon=True,
-                )
-                ticker.start()
-                try:
-                    result = converter.convert(
-                        str(input_path), page_range=(start_page, end_page)
-                    )
-                    markdown_parts.append(
-                    _fix_scientific_notation(result.document.export_to_markdown())
-                )
-                finally:
-                    stop_ticker.set()
-                    ticker.join()
-                print(
-                    f"finished pages {start_page}-{end_page}/{selected_range[1]} in {perf_counter() - batch_start:.2f}s",
-                    file=sys.stderr,
-                    flush=True,
-                )
-        finally:
-            logger.setLevel(previous_level)
-
-        return ConversionResult(
-            markdown="\n\n".join(markdown_parts),
+        return StreamingConversionSession(
             asset_dir=asset_dir,
             metadata={
                 "backend": "docling",
@@ -122,6 +100,13 @@ class DoclingBackend:
                 "page_range": selected_range,
                 "outline": outline,
             },
+            chunks=_iter_conversion_chunks(
+                converter=converter,
+                input_path=input_path,
+                selected_range=selected_range,
+                total_pages=total_pages,
+                batch_size=batch_size,
+            ),
         )
 
 
@@ -159,6 +144,55 @@ def _normalize_page_range(
 
     start_page, end_page = page_range
     return (max(1, start_page), min(total_pages, end_page))
+
+
+def _iter_conversion_chunks(
+    *,
+    converter,
+    input_path: Path,
+    selected_range: tuple[int, int],
+    total_pages: int,
+    batch_size: int,
+):
+    logger = logging.getLogger("docling")
+    previous_level = logger.level
+    logger.setLevel(logging.WARNING)
+    try:
+        for start_page in range(selected_range[0], selected_range[1] + 1, batch_size):
+            end_page = min(start_page + batch_size - 1, total_pages)
+            end_page = min(end_page, selected_range[1])
+            batch_start = perf_counter()
+            print(
+                f"converting pages {start_page}-{end_page}/{selected_range[1]}...",
+                file=sys.stderr,
+                flush=True,
+            )
+            stop_ticker = threading.Event()
+            ticker = threading.Thread(
+                target=_progress_ticker,
+                args=(stop_ticker, batch_start),
+                daemon=True,
+            )
+            ticker.start()
+            try:
+                result = converter.convert(str(input_path), page_range=(start_page, end_page))
+                markdown = _fix_scientific_notation(result.document.export_to_markdown())
+            finally:
+                stop_ticker.set()
+                ticker.join()
+            print(
+                f"finished pages {start_page}-{end_page}/{selected_range[1]} in {perf_counter() - batch_start:.2f}s",
+                file=sys.stderr,
+                flush=True,
+            )
+            yield ConversionChunk(
+                page_start=start_page,
+                page_end=end_page,
+                markdown=markdown,
+                metadata={},
+            )
+    finally:
+        logger.setLevel(previous_level)
 
 
 def _progress_ticker(stop: threading.Event, start: float) -> None:

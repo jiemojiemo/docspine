@@ -31,6 +31,12 @@ def render_node_tree(
     }
     if node.page_start is not None:
         node_meta["page_start"] = node.page_start
+    if node.page_end is not None:
+        node_meta["page_end"] = node.page_end
+    if node.structure_status is not None:
+        node_meta["structure_status"] = node.structure_status
+    if node.content_status is not None:
+        node_meta["content_status"] = node.content_status
     (output_dir / "node.json").write_text(
         json.dumps(node_meta, indent=2, ensure_ascii=False),
         encoding="utf-8",

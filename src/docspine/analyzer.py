@@ -1,6 +1,8 @@
+from pathlib import Path
 import re
 import unicodedata
 
+from docspine.converter.models import ConversionChunk
 from docspine.models import DocumentNode
 
 SECTION_PATTERN = re.compile(
@@ -77,6 +79,77 @@ def build_outline_tree(markdown: str, metadata: dict | None = None) -> DocumentN
     return root
 
 
+def build_stream_skeleton(
+    metadata: dict | None = None, initial_markdown_hint: str | None = None
+) -> DocumentNode:
+    info = metadata or {}
+    root_title = _derive_stream_root_title(info, initial_markdown_hint)
+    root = DocumentNode(
+        node_id="root",
+        title=root_title,
+        slug=slugify(root_title),
+        level=0,
+        summary="",
+        structure_status="ready",
+        content_status="pending",
+    )
+
+    outline_entries = _extract_outline_entries(info)
+    total_pages = int(info.get("page_range", (1, info.get("total_pages", 1)))[1])
+
+    if outline_entries:
+        root.children = _build_stream_children_from_outline(outline_entries)
+        _assign_page_end_ranges(root.children, total_pages)
+        _set_stream_statuses(root.children, structure_status="ready", content_status="pending")
+        return root
+
+    if initial_markdown_hint:
+        provisional_root = build_outline_tree(initial_markdown_hint, info)
+        _set_stream_statuses(
+            [provisional_root], structure_status="ready", content_status="pending"
+        )
+        return provisional_root
+
+    return root
+
+
+def assign_chunk_to_nodes(root: DocumentNode, chunk: ConversionChunk) -> list[DocumentNode]:
+    target = _find_best_target_node(root, chunk.page_start, chunk.page_end)
+    target.content = "\n\n".join(part for part in [target.content, chunk.markdown] if part).strip()
+    target.content_status = "partial"
+    root.content_status = "partial"
+    return [target]
+
+
+def finalize_stream_tree(
+    root: DocumentNode, all_chunks: list[ConversionChunk], metadata: dict | None = None
+) -> DocumentNode:
+    markdown = "\n\n".join(chunk.markdown for chunk in all_chunks if chunk.markdown.strip())
+    if markdown:
+        final_root = build_outline_tree(markdown, metadata=metadata)
+        if (
+            root.title
+            and root.title != "Document"
+            and (not final_root.children or final_root.title == final_root.children[0].title)
+        ):
+            final_root.title = root.title
+            final_root.slug = slugify(root.title)
+    else:
+        final_root = root
+    set_stream_statuses(
+        final_root, structure_status="ready", content_status="complete"
+    )
+    return final_root
+
+
+def set_stream_statuses(
+    root: DocumentNode, *, structure_status: str, content_status: str
+) -> None:
+    _set_stream_statuses(
+        [root], structure_status=structure_status, content_status=content_status
+    )
+
+
 def _detect_root_title(lines: list[str]) -> tuple[str, int]:
     for index, line in enumerate(lines):
         if not line.startswith("#"):
@@ -99,6 +172,20 @@ def _detect_root_title(lines: list[str]) -> tuple[str, int]:
         index, title = candidates[0]
         return title, index
     return "Document", 0
+
+
+def _derive_stream_root_title(metadata: dict, initial_markdown_hint: str | None) -> str:
+    if initial_markdown_hint:
+        title, _ = _detect_root_title([line.strip() for line in initial_markdown_hint.splitlines()])
+        if title and title != "Document":
+            return title
+
+    source = metadata.get("source")
+    if isinstance(source, str) and source:
+        stem = Path(source).stem.strip()
+        if stem:
+            return stem
+    return "Document"
 
 
 def _is_section_heading(line: str) -> bool:
@@ -281,3 +368,91 @@ def _build_children_from_toc(
             )
         )
     return children
+
+
+def _build_stream_children_from_outline(
+    outline_entries: list[dict[str, object]]
+) -> list[DocumentNode]:
+    seen_slugs: dict[str, int] = {}
+    nodes_with_level: list[tuple[DocumentNode, int]] = []
+    stack: list[tuple[DocumentNode, int]] = []
+
+    for entry in outline_entries:
+        title = str(entry["title"])
+        level = int(entry["level"])
+        slug = _dedupe_slug(slugify(title), seen_slugs)
+        page = entry.get("page")
+        node = DocumentNode(
+            node_id=slug,
+            title=title,
+            slug=slug,
+            level=level,
+            summary="",
+            page_start=int(page) if page is not None else None,
+        )
+        nodes_with_level.append((node, level))
+
+        while stack and stack[-1][1] >= level:
+            stack.pop()
+        if stack:
+            stack[-1][0].children.append(node)
+        stack.append((node, level))
+
+    return [node for node, level in nodes_with_level if level == 1]
+
+
+def _assign_page_end_ranges(nodes: list[DocumentNode], total_pages: int) -> None:
+    flat_nodes = _flatten_nodes_with_pages(nodes)
+    for index, node in enumerate(flat_nodes):
+        current_start = node.page_start
+        if current_start is None:
+            continue
+        next_page = next(
+            (
+                other.page_start
+                for other in flat_nodes[index + 1 :]
+                if other.page_start is not None and other.page_start > current_start
+            ),
+            None,
+        )
+        node.page_end = total_pages if next_page is None else next_page - 1
+
+
+def _flatten_nodes_with_pages(nodes: list[DocumentNode]) -> list[DocumentNode]:
+    result: list[DocumentNode] = []
+    for node in nodes:
+        result.append(node)
+        result.extend(_flatten_nodes_with_pages(node.children))
+    return result
+
+
+def _find_best_target_node(
+    root: DocumentNode, chunk_page_start: int, chunk_page_end: int
+) -> DocumentNode:
+    current = root
+    while True:
+        matching_children = [
+            child
+            for child in current.children
+            if child.page_start is not None
+            and child.page_end is not None
+            and child.page_start <= chunk_page_start
+            and chunk_page_end <= child.page_end
+        ]
+        if not matching_children:
+            return current
+        current = matching_children[0]
+
+
+def _set_stream_statuses(
+    nodes: list[DocumentNode], *, structure_status: str, content_status: str
+) -> None:
+    for node in nodes:
+        node.structure_status = structure_status
+        node.content_status = content_status
+        if node.children:
+            _set_stream_statuses(
+                node.children,
+                structure_status=structure_status,
+                content_status=content_status,
+            )

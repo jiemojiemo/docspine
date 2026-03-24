@@ -29,6 +29,7 @@ def build_parser() -> ArgumentParser:
     build_parser.add_argument("input_path", type=Path)
     build_parser.add_argument("--out", dest="output_dir", type=Path, required=True)
     build_parser.add_argument("--pages", dest="page_range", type=parse_page_range)
+    build_parser.add_argument("--stream", action="store_true")
     return parser
 
 
@@ -39,5 +40,6 @@ def main() -> int:
             args.input_path,
             args.output_dir,
             page_range=args.page_range,
+            stream=args.stream,
         )
     return 0
