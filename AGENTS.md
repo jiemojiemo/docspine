@@ -9,7 +9,7 @@ Core flow:
 - `pipeline.py`: orchestrates convert -> analyze -> segment -> render -> validate
 - `converter/docling_backend.py`: runs Docling, extracts PDF outline metadata, supports `--pages` debug ranges
 - `analyzer.py`: builds the node tree, preferring PDF outline over textual TOC over heading scan
-- `renderer.py`: writes `index.md`, `content.md`, `node.json`, and root `AGENT.md` / `context.md`
+- `renderer.py`: writes `index.md`, `content.md`, `node.json`, and root `AGENTS.md` / `context.md`
 
 ## How To Run
 
@@ -52,4 +52,4 @@ uv run --group dev pytest -q
 
 - Partial `--pages` runs are for debugging extraction, not guaranteed to produce a complete global tree.
 - Real annual reports can still produce imperfect deep hierarchy or noisy subheadings.
-- Root output directories intentionally contain `AGENT.md` and `context.md`; child section directories do not.
+- Root output directories intentionally contain `AGENTS.md` and `context.md`; child section directories do not.

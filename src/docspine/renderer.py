@@ -37,7 +37,7 @@ def render_node_tree(
     )
 
     if node.level == 0:
-        (output_dir / "AGENT.md").write_text(
+        (output_dir / "AGENTS.md").write_text(
             _render_agent_guide(node, source_path=source_path, metadata=metadata or {}),
             encoding="utf-8",
         )
@@ -107,7 +107,7 @@ def _render_agent_guide(
 ) -> str:
     source = str(source_path) if source_path is not None else "unknown"
     return (
-        "# AGENT Guide\n\n"
+        "# AGENTS Guide\n\n"
         f"Source PDF: `{source}`\n\n"
         "Read order:\n"
         "- Start with `index.md` for section navigation.\n"

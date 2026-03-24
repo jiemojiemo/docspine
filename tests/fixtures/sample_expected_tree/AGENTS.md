@@ -1,4 +1,4 @@
-# AGENT Guide
+# AGENTS Guide
 
 Source PDF: `/normalized/sample.pdf`
 

@@ -122,7 +122,8 @@ def test_render_node_tree_writes_root_agent_and_context_files(tmp_path):
         metadata={"backend": "docling", "total_pages": 12, "outline": []},
     )
 
-    assert (tmp_path / "AGENT.md").exists()
+    assert (tmp_path / "AGENTS.md").exists()
+    assert not (tmp_path / "AGENT.md").exists()
     assert (tmp_path / "context.md").exists()
 
 
@@ -143,7 +144,7 @@ def test_render_node_tree_root_agent_and_context_include_key_guidance(tmp_path):
         metadata={"backend": "docling", "total_pages": 12, "outline": [{"title": "One"}]},
     )
 
-    agent_text = (tmp_path / "AGENT.md").read_text(encoding="utf-8")
+    agent_text = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     context_text = (tmp_path / "context.md").read_text(encoding="utf-8")
 
     assert "index.md" in agent_text

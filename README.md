@@ -23,7 +23,7 @@ The agent starts at the root `index.md`, reads the hints, and drills into only t
 
 ```text
 out/
-  AGENT.md          ← read this first
+  AGENTS.md         ← read this first
   index.md          ← navigation surface
   content.md        ← root-level text
   node.json         ← root metadata
@@ -88,7 +88,7 @@ uv run --group dev pytest
 
 ## For AI Agents
 
-Start by reading `AGENT.md` and `index.md` in the output root. Use the hints on each link to decide where to look:
+Start by reading `AGENTS.md` and `index.md` in the output root. Use the hints on each link to decide where to look:
 
 - Skip sections with low `word_count` if you need detailed content
 - Prioritise sections where `has_tables` is true for structured data
