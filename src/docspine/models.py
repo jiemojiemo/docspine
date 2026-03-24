@@ -21,3 +21,6 @@ class DocumentNode:
     children: list["DocumentNode"] = field(default_factory=list)
     assets: list[AssetRef] = field(default_factory=list)
     page_start: int | None = None
+    page_end: int | None = None
+    structure_status: str | None = None
+    content_status: str | None = None

@@ -19,3 +19,10 @@ def test_build_parser_accepts_optional_page_range():
     )
 
     assert args.page_range == (1, 20)
+
+
+def test_build_parser_accepts_stream_flag():
+    parser = build_parser()
+    args = parser.parse_args(["build", "sample.pdf", "--out", "out", "--stream"])
+
+    assert args.stream is True

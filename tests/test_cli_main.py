@@ -10,10 +10,12 @@ def test_main_runs_build_pipeline(monkeypatch):
         input_path: Path,
         output_dir: Path,
         page_range: tuple[int, int] | None = None,
+        stream: bool = False,
     ) -> None:
         captured["input_path"] = input_path
         captured["output_dir"] = output_dir
         captured["page_range"] = page_range
+        captured["stream"] = stream
 
     monkeypatch.setattr(cli, "build_progressive_package", fake_build)
     monkeypatch.setattr(
@@ -26,6 +28,7 @@ def test_main_runs_build_pipeline(monkeypatch):
             "out",
             "--pages",
             "1-20",
+            "--stream",
         ],
     )
 
@@ -34,4 +37,5 @@ def test_main_runs_build_pipeline(monkeypatch):
         "input_path": Path("sample.pdf"),
         "output_dir": Path("out"),
         "page_range": (1, 20),
+        "stream": True,
     }
