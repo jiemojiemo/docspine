@@ -1,11 +1,11 @@
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from docspine.converter.models import ConversionResult
 from docspine import pipeline
 from docspine.pipeline import build_progressive_package
+from docspine.progress import BuildProgress
 
 
 class StubBackend:
@@ -14,6 +14,7 @@ class StubBackend:
         input_path: Path,
         work_dir: Path,
         page_range: tuple[int, int] | None = None,
+        progress_callback=None,
     ) -> ConversionResult:
         asset_dir = work_dir / "assets"
         asset_dir.mkdir(parents=True, exist_ok=True)
@@ -45,6 +46,7 @@ def test_build_progressive_package_passes_page_range_to_backend(tmp_path):
             input_path: Path,
             work_dir: Path,
             page_range: tuple[int, int] | None = None,
+            progress_callback=None,
         ) -> ConversionResult:
             captured["page_range"] = page_range
             return super().convert(input_path, work_dir, page_range=page_range)
@@ -69,6 +71,7 @@ def test_build_progressive_package_uses_default_backend_when_none_provided(monke
             input_path: Path,
             work_dir: Path,
             page_range: tuple[int, int] | None = None,
+            progress_callback=None,
         ) -> ConversionResult:
             return ConversionResult(
                 markdown="# Sample",
@@ -105,12 +108,14 @@ def test_build_progressive_package_routes_stream_mode_to_streaming_pipeline(monk
         backend=None,
         page_range: tuple[int, int] | None = None,
         stream_batch_size: int = 5,
+        progress_callback=None,
     ) -> None:
         captured["input_pdf"] = input_pdf
         captured["output_dir"] = output_dir
         captured["backend"] = backend
         captured["page_range"] = page_range
         captured["stream_batch_size"] = stream_batch_size
+        captured["progress_callback"] = progress_callback
 
     input_pdf = tmp_path / "sample.pdf"
     input_pdf.write_bytes(b"%PDF-1.4")
@@ -132,7 +137,47 @@ def test_build_progressive_package_routes_stream_mode_to_streaming_pipeline(monk
         "backend": backend,
         "page_range": (1, 20),
         "stream_batch_size": 5,
+        "progress_callback": None,
     }
+
+
+def test_build_progressive_package_reports_progress_updates(tmp_path):
+    input_pdf = tmp_path / "sample.pdf"
+    input_pdf.write_bytes(b"%PDF-1.4")
+    observed: list[BuildProgress] = []
+
+    class ProgressBackend(StubBackend):
+        def convert(
+            self,
+            input_path: Path,
+            work_dir: Path,
+            page_range: tuple[int, int] | None = None,
+            progress_callback=None,
+        ) -> ConversionResult:
+            if progress_callback is not None:
+                progress_callback(
+                    BuildProgress(stage="processing", processed_pages=20, total_pages=100)
+                )
+            return super().convert(
+                input_path,
+                work_dir,
+                page_range=page_range,
+                progress_callback=progress_callback,
+            )
+
+    build_progressive_package(
+        input_pdf,
+        tmp_path / "out",
+        backend=ProgressBackend(),
+        progress_callback=observed.append,
+    )
+
+    assert observed == [
+        BuildProgress(stage="preparing"),
+        BuildProgress(stage="processing", processed_pages=20, total_pages=100),
+        BuildProgress(stage="finalizing"),
+        BuildProgress(stage="complete"),
+    ]
 
 
 def test_build_progressive_package_streaming_builds_skeleton_before_all_chunks_finish(tmp_path):
@@ -140,6 +185,7 @@ def test_build_progressive_package_streaming_builds_skeleton_before_all_chunks_f
     input_pdf.write_bytes(b"%PDF-1.4")
     output_dir = tmp_path / "out"
     observations: dict[str, object] = {}
+    progress_events: list[BuildProgress] = []
 
     class StreamingBackend:
         def convert(
@@ -147,6 +193,7 @@ def test_build_progressive_package_streaming_builds_skeleton_before_all_chunks_f
             input_path: Path,
             work_dir: Path,
             page_range: tuple[int, int] | None = None,
+            progress_callback=None,
         ) -> ConversionResult:
             raise AssertionError("non-stream convert should not be called")
 
@@ -192,7 +239,13 @@ def test_build_progressive_package_streaming_builds_skeleton_before_all_chunks_f
                 chunks=chunks(),
             )
 
-    build_progressive_package(input_pdf, output_dir, backend=StreamingBackend(), stream=True)
+    build_progressive_package(
+        input_pdf,
+        output_dir,
+        backend=StreamingBackend(),
+        stream=True,
+        progress_callback=progress_events.append,
+    )
 
     assert observations["root_exists_during_stream"] is True
     assert observations["section_exists_during_stream"] is True
@@ -200,3 +253,10 @@ def test_build_progressive_package_streaming_builds_skeleton_before_all_chunks_f
     assert '"content_status": "complete"' in (
         output_dir / "sections" / "01-第一节-重要提示" / "node.json"
     ).read_text(encoding="utf-8")
+    assert progress_events == [
+        BuildProgress(stage="preparing"),
+        BuildProgress(stage="processing", processed_pages=5, total_pages=10),
+        BuildProgress(stage="processing", processed_pages=10, total_pages=10),
+        BuildProgress(stage="finalizing"),
+        BuildProgress(stage="complete"),
+    ]

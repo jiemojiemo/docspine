@@ -6,6 +6,7 @@ from pathlib import Path
 from time import perf_counter
 
 from docspine.converter.models import ConversionChunk, ConversionResult, StreamingConversionSession
+from docspine.progress import BuildProgress, ProgressCallback
 
 PAGE_BATCH_SIZE = 20
 STREAM_PAGE_BATCH_SIZE = 5
@@ -17,6 +18,7 @@ class DoclingBackend:
         input_path: Path,
         work_dir: Path,
         page_range: tuple[int, int] | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> ConversionResult:
         session = self.stream_convert(
             input_path,
@@ -24,7 +26,21 @@ class DoclingBackend:
             page_range=page_range,
             batch_size=PAGE_BATCH_SIZE,
         )
-        markdown = "\n\n".join(chunk.markdown for chunk in session.chunks)
+        total_pages = int(session.metadata.get("processed_pages", 0) or 0)
+        processed_pages = 0
+        chunks: list[ConversionChunk] = []
+        for chunk in session.chunks:
+            chunks.append(chunk)
+            processed_pages += chunk.page_end - chunk.page_start + 1
+            if progress_callback is not None:
+                progress_callback(
+                    BuildProgress(
+                        stage="processing",
+                        processed_pages=processed_pages,
+                        total_pages=total_pages or None,
+                    )
+                )
+        markdown = "\n\n".join(chunk.markdown for chunk in chunks)
         return ConversionResult(
             markdown=markdown,
             asset_dir=session.asset_dir,

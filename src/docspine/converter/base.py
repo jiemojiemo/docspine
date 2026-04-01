@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Protocol
 
 from docspine.converter.models import ConversionResult, StreamingConversionSession
+from docspine.progress import ProgressCallback
 
 
 class ConverterBackend(Protocol):
@@ -10,6 +11,7 @@ class ConverterBackend(Protocol):
         input_path: Path,
         work_dir: Path,
         page_range: tuple[int, int] | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> ConversionResult:
         """Convert an input file into backend-neutral markdown output."""
 
